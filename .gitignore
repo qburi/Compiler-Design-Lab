@@ -1,0 +1,73 @@
+# =========================
+# CLion / JetBrains IDEs
+# =========================
+.idea/
+*.iml
+cmake-build-*/
+
+# =========================
+# CMake Build Artifacts
+# =========================
+build/
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps/
+
+# =========================
+# Compiled Object Files
+# =========================
+*.o
+*.obj
+*.slo
+*.lo
+
+# =========================
+# Compiled Libraries
+# =========================
+*.a
+*.lib
+*.so
+*.dll
+*.dylib
+*.la
+*.lai
+
+# =========================
+# Executables
+# =========================
+*.exe
+*.out
+*.app
+
+# =========================
+# Precompiled Headers
+# =========================
+*.gch
+*.pch
+
+# =========================
+# Flex & Bison (Generated Files)
+# =========================
+# If you run Flex/Bison in-source, it's best to ignore the generated C/C++ files
+# since they are built directly from your .l and .y files.
+lex.yy.c
+lex.yy.cc
+y.tab.c
+y.tab.cc
+y.tab.h
+y.output
+*.yy.c
+*.tab.c
+*.tab.h
+
+# =========================
+# OS-Specific Files
+# =========================
+.DS_Store
+Thumbs.db
