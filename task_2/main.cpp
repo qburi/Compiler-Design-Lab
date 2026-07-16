@@ -23,7 +23,8 @@ bool isKeyword(const string& str) {
 }
 
 bool isSpecialSymbol(char ch) {
-    string syms = ",;(){}[]$";
+    // Added ':' here to match the assignment requirements!
+    string syms = ",;:(){}[]$";
     for (char c : syms) {
         if (c == ch)
             return true;
@@ -55,10 +56,33 @@ int main() {
     set<char> special_symbols;
     vector<string> non_tokens;
 
+    bool in_multi_line_comment = false;
+    string current_multi_line_comment = "";
+
     string line;
     while (getline(file, line)) {
         int n = line.length();
         for (int i = 0; i < n; i++) {
+
+            if (in_multi_line_comment) {
+                if (i + 1 < n && line[i] == '*' && line[i+1] == '/') {
+                    in_multi_line_comment = false;
+
+                    // Strip leading whitespaces
+                    int start = 0;
+                    while(start < current_multi_line_comment.length() && isspace(current_multi_line_comment[start])) {
+                        start++;
+                    }
+
+                    non_tokens.push_back("Comments: " + current_multi_line_comment.substr(start));
+                    current_multi_line_comment = ""; // Reset for the next comment
+                    i++;
+                } else {
+                    current_multi_line_comment += line[i];
+                }
+                continue;
+            }
+
             if (isspace(line[i])) continue;
 
             // for preprocessor directives -> capture the entire line
@@ -71,8 +95,6 @@ int main() {
             // for single-line comments
             if (i + 1 < n && line[i] == '/' && line[i+1] == '/') {
                 string comment = line.substr(i + 2);
-
-                // left-strip whitespaces
                 int start = 0;
                 while(start < comment.length() && isspace(comment[start]))
                     start++;
@@ -81,29 +103,12 @@ int main() {
                 break;
             }
 
-            // Handle Multi-line Comments
+            // entry point for multi-line comments
             if (i + 1 < n && line[i] == '/' && line[i+1] == '*') {
-                int j = i + 2;
-                string comment = "";
-                bool closed = false;
-                while (j < n - 1) {
-                    if (line[j] == '*' && line[j+1] == '/') {
-                        closed = true;
-                        i = j + 1;
-                        break;
-                    }
-                    comment += line[j++];
-                }
-                if (closed) {
-                    int start = 0;
-
-                    // left-strip whitespaces
-                    while(start < comment.length() && isspace(comment[start]))
-                        start++;
-
-                    non_tokens.push_back("Comments: " + comment.substr(start));
-                    continue;
-                }
+                in_multi_line_comment = true;
+                current_multi_line_comment = "";
+                i++; // skip the '*' character
+                continue;
             }
 
             // for handling literals -> strings
@@ -188,6 +193,11 @@ int main() {
                 special_symbols.insert(line[i]);
                 continue;
             }
+        }
+
+        // If a comment carries over to the next line, append a new line
+        if (in_multi_line_comment) {
+            current_multi_line_comment += "\n";
         }
     }
     file.close();
