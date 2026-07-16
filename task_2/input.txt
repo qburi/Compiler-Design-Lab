@@ -1,0 +1,14 @@
+#include <stdio.h>
+
+int main() {
+    int a;
+    int b;
+    a = 10; // this is a comment
+    b = 10; // this is another comment
+    if (a >= b) {
+        printf("a is greater than b");
+    } else {
+        printf("b is greater than a");
+    }
+    return 0;
+}
