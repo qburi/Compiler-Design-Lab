@@ -23,8 +23,7 @@ bool isKeyword(const string& str) {
 }
 
 bool isSpecialSymbol(char ch) {
-    // Added ':' here to match the assignment requirements!
-    string syms = ",;:(){}[]$";
+    string syms = ",;(){}[]$";
     for (char c : syms) {
         if (c == ch)
             return true;
