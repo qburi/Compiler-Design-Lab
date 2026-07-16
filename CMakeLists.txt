@@ -5,7 +5,6 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # 1. Dynamically find all main.cpp files.
-# CONFIGURE_DEPENDS updates automatically when new folders are added.
 file(GLOB_RECURSE MAIN_FILES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/*/main.cpp")
 
 foreach(MAIN_CPP_PATH IN LISTS MAIN_FILES)
@@ -18,24 +17,30 @@ foreach(MAIN_CPP_PATH IN LISTS MAIN_FILES)
     get_filename_component(FOLDER_PATH "${MAIN_CPP_PATH}" DIRECTORY)
     get_filename_component(TARGET_NAME "${FOLDER_PATH}" NAME)
 
+    # 2. Create the executable
+    add_executable(${TARGET_NAME} "${MAIN_CPP_PATH}")
+
+    # 3. Force the executable to be placed in its own subfolder inside the debug directory.
+    # This prevents overlap and completely breaks the cyclic dependency loop!
+    set(TARGET_OUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}")
+    set_target_properties(${TARGET_NAME} PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY "${TARGET_OUT_DIR}"
+    )
+
     set(INPUT_FILE_PATH "${FOLDER_PATH}/input.txt")
 
-    # 2. Check if an input.txt exists in the assignment folder
+    # 4. Check if an input.txt exists in the assignment folder
     if(EXISTS "${INPUT_FILE_PATH}")
-        # Add input.txt AS A SOURCE. This makes CMake track modifications to it.
-        # When you edit the text file, it triggers the POST_BUILD command automatically.
-        add_executable(${TARGET_NAME} "${MAIN_CPP_PATH}" "${INPUT_FILE_PATH}")
-
-        # Simply copy it over after the build finishes
-        add_custom_command(
-                TARGET ${TARGET_NAME} POST_BUILD
+        # Create a dedicated target that ALWAYS evaluates when you run the project.
+        # No generator expressions = No infinite loops.
+        add_custom_target(${TARGET_NAME}_copy_input
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "${INPUT_FILE_PATH}"
-                "$<TARGET_FILE_DIR:${TARGET_NAME}>/input.txt"
+                "${TARGET_OUT_DIR}/input.txt"
         )
-    else()
-        # If there's no input.txt, just compile normally
-        add_executable(${TARGET_NAME} "${MAIN_CPP_PATH}")
+
+        # Make the executable strictly depend on the copy task so the text file syncs FIRST
+        add_dependencies(${TARGET_NAME} ${TARGET_NAME}_copy_input)
     endif()
 
 endforeach()
