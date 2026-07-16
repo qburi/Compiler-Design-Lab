@@ -1,21 +1,21 @@
-#include <stdio.h>
+#include <stdlib.h>
 
 int main() {
-    int a;
-    int b;
-    a = 10; // this is a comment
-    b = 10; // this is another comment
-    if (a >= b) {
-        printf("a is greater than b");
-    } else {
-        printf("b is greater than a");
+    int counter;
+    int limit = 15;
+
+    // Iterate until the counter reaches the limit
+    for (counter = 0; counter <= limit; counter = counter + 1) {
+        if (counter % 2 == 0) {
+            printf("Even");
+        } else {
+            printf("Odd");
+        }
     }
+
+    /*
+    Execution finished.
+    Terminating program safely.
+    */
     return 0;
 }
-
-/*
-this is a multi-line comment
-line 1
-line 2
-multi-line comment ends here
-*/
