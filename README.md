@@ -13,6 +13,4 @@ compiler-design-lab \
 │   └── parser.y                 # Bison file \
 └── ... (other experiments) \
 
-follow the CMakeLists.txt structure \
-Update it regularly
 
