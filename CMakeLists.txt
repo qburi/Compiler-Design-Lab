@@ -19,8 +19,7 @@ foreach(CPP_FILE_PATH IN LISTS CPP_FILES)
     get_filename_component(FOLDER_NAME "${FOLDER_PATH}" NAME)
     get_filename_component(FILE_NAME_WE "${CPP_FILE_PATH}" NAME_WE)
 
-    # 2. Create a unique target name (e.g., "task_2_main" or "assessment_1_q1")
-    # This completely solves the issue of having multiple .cpp files in one folder.
+    # 2. Create a unique target name (e.g., "task_2_main" or "vtop_assessment_1_symbolTable")
     set(TARGET_NAME "${FOLDER_NAME}_${FILE_NAME_WE}")
 
     # 3. Create the executable
@@ -32,19 +31,22 @@ foreach(CPP_FILE_PATH IN LISTS CPP_FILES)
             RUNTIME_OUTPUT_DIRECTORY "${TARGET_OUT_DIR}"
     )
 
-    set(INPUT_FILE_PATH "${FOLDER_PATH}/input.txt")
+    # 5. Dynamically find ALL .txt files in the same directory as the .cpp file
+    file(GLOB TXT_FILES "${FOLDER_PATH}/*.txt")
 
-    # 5. Check if an input.txt exists in the assignment folder
-    if(EXISTS "${INPUT_FILE_PATH}")
-        # Create a dedicated target that ALWAYS evaluates when you run the project.
-        add_custom_target(${TARGET_NAME}_copy_input
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${INPUT_FILE_PATH}"
-                "${TARGET_OUT_DIR}/input.txt"
-        )
+    # 6. Copy all found .txt files to the executable's output directory safely
+    if(TXT_FILES)
+        foreach(TXT_FILE IN LISTS TXT_FILES)
+            get_filename_component(TXT_FILE_NAME "${TXT_FILE}" NAME)
 
-        # Make the executable strictly depend on the copy task so the text file syncs FIRST
-        add_dependencies(${TARGET_NAME} ${TARGET_NAME}_copy_input)
+            # Using POST_BUILD guarantees the file is copied exactly when the target builds
+            add_custom_command(
+                    TARGET ${TARGET_NAME} POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "${TXT_FILE}"
+                    "${TARGET_OUT_DIR}/${TXT_FILE_NAME}"
+            )
+        endforeach()
     endif()
 
 endforeach()
