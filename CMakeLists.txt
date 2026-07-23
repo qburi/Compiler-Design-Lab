@@ -39,13 +39,26 @@ foreach(CPP_FILE_PATH IN LISTS CPP_FILES)
         foreach(TXT_FILE IN LISTS TXT_FILES)
             get_filename_component(TXT_FILE_NAME "${TXT_FILE}" NAME)
 
-            # Using POST_BUILD guarantees the file is copied exactly when the target builds
+            # Define the destination path
+            set(TXT_FILE_DEST "${TARGET_OUT_DIR}/${TXT_FILE_NAME}")
+
+            # Create a custom command that tells CMake HOW to generate the destination file.
+            # It will automatically re-run if the DEPENDS file (your original .txt) is modified.
             add_custom_command(
-                    TARGET ${TARGET_NAME} POST_BUILD
+                    OUTPUT "${TXT_FILE_DEST}"
                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
                     "${TXT_FILE}"
-                    "${TARGET_OUT_DIR}/${TXT_FILE_NAME}"
+                    "${TXT_FILE_DEST}"
+                    DEPENDS "${TXT_FILE}"
+                    COMMENT "Copying/Updating ${TXT_FILE_NAME} for ${TARGET_NAME}"
             )
+
+            # Add the destination file as a source to the executable target.
+            # This forces the build system to evaluate the dependency chain and
+            # execute the copy command before running the executable, even if
+            # the .cpp file hasn't changed.
+            target_sources(${TARGET_NAME} PRIVATE "${TXT_FILE_DEST}")
+
         endforeach()
     endif()
 
