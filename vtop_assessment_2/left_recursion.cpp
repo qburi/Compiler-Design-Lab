@@ -1,49 +1,105 @@
-#include <bits/stdc++.h>
+#include <iostream>
+#include <string>
+#include <vector>
+#include <unordered_map>
+#include <sstream>
 
 using namespace std;
 
-void eliminateLeftRecursion(string production) {
-    char nonTerminal = production[0];
-    string rightSide = production.substr(3); // Skip "A->"
-    
-    vector<string> alphas, betas;
-    stringstream ss(rightSide);
-    string token;
-    
-    // Split productions by '|'
-    while (getline(ss, token, '|')) {
-        if (token[0] == nonTerminal) {
-            alphas.push_back(token.substr(1)); // Extract alpha
-        } else {
-            betas.push_back(token); // Extract beta
+class LeftRecursionEliminator {
+private:
+    unordered_map<string, vector<string>> grammar;
+
+    // Helper to generate a unique new non-terminal (e.g., E', E'', etc.)
+    string getNewNonTerminal(string nt) {
+        string newNt = nt + "'";
+        while (grammar.find(newNt) != grammar.end()) {
+            newNt += "'";
+        }
+        return newNt;
+    }
+
+public:
+    void addProduction(const string& prodStr) {
+        size_t arrowPos = prodStr.find("->");
+        if (arrowPos == string::npos) return;
+
+        string nt = prodStr.substr(0, arrowPos);
+        string rhs = prodStr.substr(arrowPos + 2);
+
+        stringstream ss(rhs);
+        string token;
+        vector<string> productions;
+
+        while (getline(ss, token, '|')) {
+            productions.push_back(token);
+        }
+        grammar[nt] = productions;
+    }
+
+    void eliminate() {
+        vector<string> nonTerminals;
+        for (const auto& pair : grammar) {
+            nonTerminals.push_back(pair.first);
+        }
+
+        for (const string& nt : nonTerminals) {
+            vector<string> alphas, betas;
+
+            for (const string& prod : grammar[nt]) {
+                if (prod.length() >= nt.length() && prod.substr(0, nt.length()) == nt) {
+                    alphas.push_back(prod.substr(nt.length())); // Extract alpha
+                } else {
+                    betas.push_back(prod); // Extract beta
+                }
+            }
+
+            if (alphas.empty()) continue;
+
+            string newNt = getNewNonTerminal(nt);
+            vector<string> newBetas, newAlphas;
+
+            if (betas.empty()) {
+                newBetas.push_back(newNt);
+            } else {
+                for (const string& beta : betas) {
+                    newBetas.push_back((beta == "epsilon" ? "" : beta) + newNt);
+                }
+            }
+
+            for (const string& alpha : alphas) {
+                newAlphas.push_back(alpha + newNt);
+            }
+            newAlphas.push_back("epsilon");
+
+            grammar[nt] = newBetas;
+            grammar[newNt] = newAlphas;
         }
     }
-    
-    if (alphas.empty()) {
-        cout << "No immediate left recursion found." << endl;
-        return;
+
+    void printGrammar() const {
+        for (const auto& pair : grammar) {
+            cout << pair.first << " -> ";
+            for (size_t i = 0; i < pair.second.size(); ++i) {
+                cout << pair.second[i];
+                if (i != pair.second.size() - 1) cout << " | ";
+            }
+            cout << endl;
+        }
     }
-    
-    // Generate new productions
-    string newNonTerminal = string(1, nonTerminal) + "'";
-    
-    cout << nonTerminal << " -> ";
-    for (size_t i = 0; i < betas.size(); ++i) {
-        cout << betas[i] << newNonTerminal;
-        if (i != betas.size() - 1) cout << " | ";
-    }
-    cout << endl;
-    
-    cout << newNonTerminal << " -> ";
-    for (size_t i = 0; i < alphas.size(); ++i) {
-        cout << alphas[i] << newNonTerminal << " | ";
-    }
-    cout << "epsilon" << endl;
-}
+};
 
 int main() {
-    string grammar = "E->E+T|T";
-    cout << "Original: " << grammar << endl;
-    eliminateLeftRecursion(grammar);
+    LeftRecursionEliminator lre;
+    lre.addProduction("E->E+T|T");
+
+    cout << "--- Original Grammar ---" << endl;
+    lre.printGrammar();
+
+    lre.eliminate();
+
+    cout << "\n--- After Left Recursion Elimination ---" << endl;
+    lre.printGrammar();
+
     return 0;
 }
