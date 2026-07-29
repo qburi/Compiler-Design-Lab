@@ -1,139 +1,195 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <unordered_map>
 #include <sstream>
 #include <algorithm>
 
 using namespace std;
 
-void eliminateLeftRecursion(string production) {
-    char nonTerminal = production[0];
-    string rightSide = production.substr(3); // Skip "A->"
+class GrammarProcessor {
+private:
+    // Maps a non-terminal (string) to a list of its productions (vector of strings)
+    unordered_map<string, vector<string>> grammar;
 
-    vector<string> alphas, betas;
-    stringstream ss(rightSide);
-    string token;
+    // Helper to find the longest common prefix between two strings
+    string getCommonPrefix(const string& s1, const string& s2) {
+        string prefix = "";
+        int n = min(s1.length(), s2.length());
+        for (int i = 0; i < n; ++i) {
+            if (s1[i] == s2[i]) {
+                prefix += s1[i];
+            } else {
+                break;
+            }
+        }
+        return prefix;
+    }
 
-    // Split productions by '|'
-    while (getline(ss, token, '|')) {
-        if (token[0] == nonTerminal) {
-            alphas.push_back(token.substr(1)); // Extract alpha
-        } else {
-            betas.push_back(token); // Extract beta
+    // Helper to generate a unique new non-terminal (e.g., A', A'', etc.)
+    string getNewNonTerminal(string nt) {
+        string newNt = nt + "'";
+        // Ensure the new non-terminal doesn't already exist in the grammar
+        while (grammar.find(newNt) != grammar.end()) {
+            newNt += "'";
+        }
+        return newNt;
+    }
+
+public:
+    // Parses a raw grammar string (e.g., "E->E+T|T") and loads it into the map
+    void addProduction(const string& prodStr) {
+        size_t arrowPos = prodStr.find("->");
+        if (arrowPos == string::npos) return;
+
+        string nt = prodStr.substr(0, arrowPos);
+        string rhs = prodStr.substr(arrowPos + 2);
+
+        stringstream ss(rhs);
+        string token;
+        vector<string> productions;
+
+        while (getline(ss, token, '|')) {
+            productions.push_back(token);
+        }
+        grammar[nt] = productions;
+    }
+
+    // Cascaded Step 1
+    void eliminateLeftRecursion() {
+        // Copy keys because we will be inserting new elements into the map during iteration
+        vector<string> nonTerminals;
+        for (const auto& pair : grammar) {
+            nonTerminals.push_back(pair.first);
+        }
+
+        for (const string& nt : nonTerminals) {
+            vector<string> alphas, betas;
+
+            for (const string& prod : grammar[nt]) {
+                // Check if production starts with the current non-terminal
+                if (prod.length() >= nt.length() && prod.substr(0, nt.length()) == nt) {
+                    alphas.push_back(prod.substr(nt.length())); // Extract alpha
+                } else {
+                    betas.push_back(prod); // Extract beta
+                }
+            }
+
+            // Skip if no immediate left recursion is found for this non-terminal
+            if (alphas.empty()) continue;
+
+            string newNt = getNewNonTerminal(nt);
+            vector<string> newBetas, newAlphas;
+
+            if (betas.empty()) {
+                newBetas.push_back(newNt);
+            } else {
+                for (const string& beta : betas) {
+                    newBetas.push_back((beta == "epsilon" ? "" : beta) + newNt);
+                }
+            }
+
+            for (const string& alpha : alphas) {
+                newAlphas.push_back(alpha + newNt);
+            }
+            newAlphas.push_back("epsilon");
+
+            // Update the map
+            grammar[nt] = newBetas;
+            grammar[newNt] = newAlphas;
         }
     }
 
-    if (alphas.empty()) {
-        cout << "No immediate left recursion found." << endl;
-        return;
-    }
+    // Cascaded Step 2
+    void leftFactor() {
+        bool changed = true;
 
-    // Generate new productions
-    string newNonTerminal = string(1, nonTerminal) + "'";
+        // Loop ensures that newly factored rules are also checked for further factoring
+        while (changed) {
+            changed = false;
+            vector<string> nonTerminals;
+            for (const auto& pair : grammar) {
+                nonTerminals.push_back(pair.first);
+            }
 
-    cout << nonTerminal << " -> ";
-    for (size_t i = 0; i < betas.size(); ++i) {
-        cout << betas[i] << newNonTerminal;
-        if (i != betas.size() - 1) cout << " | ";
-    }
-    cout << endl;
+            for (const string& nt : nonTerminals) {
+                vector<string>& prods = grammar[nt];
+                if (prods.size() < 2) continue;
 
-    cout << newNonTerminal << " -> ";
-    for (size_t i = 0; i < alphas.size(); ++i) {
-        cout << alphas[i] << newNonTerminal << " | ";
-    }
-    cout << "epsilon" << endl;
-}
+                string bestPrefix = "";
 
-// Helper to find the longest common prefix between two strings
-string getCommonPrefix(string s1, string s2) {
-    string prefix = "";
-    int n = min(s1.length(), s2.length());
-    for (int i = 0; i < n; ++i) {
-        if (s1[i] == s2[i]) {
-            prefix += s1[i];
-        } else {
-            break;
-        }
-    }
-    return prefix;
-}
+                // Find the longest prefix shared by at least TWO productions
+                for (size_t i = 0; i < prods.size(); ++i) {
+                    for (size_t j = i + 1; j < prods.size(); ++j) {
+                        if (prods[i] == "epsilon" || prods[j] == "epsilon") continue;
 
-void leftFactor(string production) {
-    char nonTerminal = production[0];
-    string rightSide = production.substr(3);
+                        string currentPrefix = getCommonPrefix(prods[i], prods[j]);
+                        if (currentPrefix.length() > bestPrefix.length()) {
+                            bestPrefix = currentPrefix;
+                        }
+                    }
+                }
 
-    vector<string> prods;
-    stringstream ss(rightSide);
-    string token;
+                if (bestPrefix.empty()) continue;
 
-    while (getline(ss, token, '|')) {
-        prods.push_back(token);
-    }
+                changed = true;
+                string newNt = getNewNonTerminal(nt);
+                vector<string> factoredProds;
+                vector<string> unchangedProds;
 
-    if (prods.size() < 2) {
-        cout << "Not enough productions for left factoring." << endl;
-        return;
-    }
+                // Separate productions that share the prefix from those that do not
+                for (const string& p : prods) {
+                    if (p != "epsilon" && p.substr(0, bestPrefix.length()) == bestPrefix) {
+                        string remaining = p.substr(bestPrefix.length());
+                        if (remaining.empty()) remaining = "epsilon";
+                        factoredProds.push_back(remaining);
+                    } else {
+                        unchangedProds.push_back(p);
+                    }
+                }
 
-    // 1. Find the longest prefix shared by at least two productions
-    string bestPrefix = "";
-    for (size_t i = 0; i < prods.size(); ++i) {
-        for (size_t j = i + 1; j < prods.size(); ++j) {
-            string currentPrefix = getCommonPrefix(prods[i], prods[j]);
-            if (currentPrefix.length() > bestPrefix.length()) {
-                bestPrefix = currentPrefix;
+                // Update the map
+                unchangedProds.push_back(bestPrefix + newNt);
+                grammar[nt] = unchangedProds;
+                grammar[newNt] = factoredProds;
+
+                // Break out of the for-loop to refresh the map iterators
+                break;
             }
         }
     }
 
-    if (bestPrefix.empty()) {
-        cout << "No common prefix found. Left factoring not required." << endl;
-        return;
-    }
-
-    string newNonTerminal = string(1, nonTerminal) + "'";
-
-    vector<string> factoredProds;
-    vector<string> unchangedProds;
-
-    // 2. Separate productions that share the prefix from those that don't
-    for (const string& p : prods) {
-        if (p.substr(0, bestPrefix.length()) == bestPrefix) {
-            string remaining = p.substr(bestPrefix.length());
-            if (remaining.empty()) remaining = "epsilon";
-            factoredProds.push_back(remaining);
-        } else {
-            unchangedProds.push_back(p);
+    void printGrammar() const {
+        for (const auto& pair : grammar) {
+            cout << pair.first << " -> ";
+            for (size_t i = 0; i < pair.second.size(); ++i) {
+                cout << pair.second[i];
+                if (i != pair.second.size() - 1) cout << " | ";
+            }
+            cout << endl;
         }
     }
-
-    // 3. Print the modified original production
-    cout << nonTerminal << " -> " << bestPrefix << newNonTerminal;
-    for (const string& p : unchangedProds) {
-        cout << " | " << p;
-    }
-    cout << endl;
-
-    // 4. Print the new factored production
-    cout << newNonTerminal << " -> ";
-    for (size_t i = 0; i < factoredProds.size(); ++i) {
-        cout << factoredProds[i];
-        if (i != factoredProds.size() - 1) cout << " | ";
-    }
-    cout << endl;
-}
+};
 
 int main() {
-    cout << "--- Left Recursion Elimination ---" << endl;
-    string grammar1 = "E->E+T|T";
-    cout << "Original: " << grammar1 << endl;
-    eliminateLeftRecursion(grammar1);
-    
-    cout << "\n--- Left Factoring ---" << endl;
-    string grammar2 = "S->iEtS|iEtSeS|a";
-    cout << "Original: " << grammar2 << endl;
-    leftFactor(grammar2);
-    
+    GrammarProcessor gp;
+
+    // Load multiple rules into the grammar map
+    gp.addProduction("E->E+T|T");
+    gp.addProduction("S->iEtS|iEtSeS|a");
+
+    cout << "--- Original Grammar ---" << endl;
+    gp.printGrammar();
+
+    // Cascade Operation 1
+    cout << "\n--- After Left Recursion Elimination ---" << endl;
+    gp.eliminateLeftRecursion();
+    gp.printGrammar();
+
+    // Cascade Operation 2
+    cout << "\n--- After Left Factoring ---" << endl;
+    gp.leftFactor();
+    gp.printGrammar();
+
     return 0;
 }
