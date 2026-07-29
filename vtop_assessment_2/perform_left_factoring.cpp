@@ -33,32 +33,50 @@ void leftFactor(string production) {
         return;
     }
 
-    // Find the longest common prefix among all productions
-    string prefix = prods[0];
-    for (size_t i = 1; i < prods.size(); ++i) {
-        prefix = getCommonPrefix(prefix, prods[i]);
+    // 1. Find the longest prefix shared by at least TWO productions
+    string bestPrefix = "";
+    for (size_t i = 0; i < prods.size(); ++i) {
+        for (size_t j = i + 1; j < prods.size(); ++j) {
+            string currentPrefix = getCommonPrefix(prods[i], prods[j]);
+            if (currentPrefix.length() > bestPrefix.length()) {
+                bestPrefix = currentPrefix;
+            }
+        }
     }
 
-    if (prefix.empty()) {
+    if (bestPrefix.empty()) {
         cout << "No common prefix found. Left factoring not required." << endl;
         return;
     }
 
     string newNonTerminal = string(1, nonTerminal) + "'";
 
-    // Print the factored out production
-    cout << nonTerminal << " -> " << prefix << newNonTerminal << endl;
+    vector<string> factoredProds;
+    vector<string> unchangedProds;
 
-    // Print the remaining parts
-    cout << newNonTerminal << " -> ";
-    for (size_t i = 0; i < prods.size(); ++i) {
-        string remaining = prods[i].substr(prefix.length());
-        if (remaining.empty()) {
-            cout << "epsilon";
+    // 2. Separate productions that share the prefix from those that do not
+    for (const string& p : prods) {
+        if (p.substr(0, bestPrefix.length()) == bestPrefix) {
+            string remaining = p.substr(bestPrefix.length());
+            if (remaining.empty()) remaining = "epsilon";
+            factoredProds.push_back(remaining);
         } else {
-            cout << remaining;
+            unchangedProds.push_back(p);
         }
-        if (i != prods.size() - 1) cout << " | ";
+    }
+
+    // 3. Print the modified original production
+    cout << nonTerminal << " -> " << bestPrefix << newNonTerminal;
+    for (const string& p : unchangedProds) {
+        cout << " | " << p;
+    }
+    cout << endl;
+
+    // 4. Print the new factored production
+    cout << newNonTerminal << " -> ";
+    for (size_t i = 0; i < factoredProds.size(); ++i) {
+        cout << factoredProds[i];
+        if (i != factoredProds.size() - 1) cout << " | ";
     }
     cout << endl;
 }
