@@ -26,11 +26,11 @@ int main() {
     cout << "\n";
 
     vector<string> alphas, betas;
-    for (string p : prods) {
-        if (p.length() >= nt.length() && p.substr(0, nt.length()) == nt) {
-            alphas.push_back(p.substr(nt.length()));
+    for (string production : prods) {
+        if (production.length() >= nt.length() && production.substr(0, nt.length()) == nt) {
+            alphas.push_back(production.substr(nt.length()));
         } else {
-            betas.push_back(p);
+            betas.push_back(production);
         }
     }
 
