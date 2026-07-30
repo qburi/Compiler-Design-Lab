@@ -1,210 +1,93 @@
-#include <iostream>
-#include <string>
-#include <vector>
-#include <unordered_map>
-#include <sstream>
-#include <algorithm>
+#include <bits/stdc++.h>
 
 using namespace std;
 
-class GrammarProcessor {
-public:
-    unordered_map<string, vector<string>> grammar;
-    bool executed = false;
-
-    string getCommonPrefix(const string& s1, const string& s2) {
-        string prefix = "";
-        int n = min(s1.length(), s2.length());
-        for (int i = 0; i < n; ++i) {
-            if (s1[i] == s2[i]) {
-                prefix += s1[i];
-            } else {
-                break;
-            }
-        }
-        return prefix;
-    }
-
-    string getNewNonTerminal(string nt) {
-        string newNt = nt + "'";
-        while (grammar.find(newNt) != grammar.end()) {
-            newNt += "'";
-        }
-        return newNt;
-    }
-
-    void addProduction(const string& prodStr) {
-        size_t arrowPos = prodStr.find("->");
-        if (arrowPos == string::npos) return;
-
-        string nt = prodStr.substr(0, arrowPos);
-        string rhs = prodStr.substr(arrowPos + 2);
-
-        stringstream ss(rhs);
-        string token;
-        vector<string> productions;
-
-        while (getline(ss, token, '|')) {
-            productions.push_back(token);
-        }
-        grammar[nt] = productions;
-    }
-
-    void eliminateLeftRecursion() {
-        vector<string> nonTerminals;
-        for (const auto& pair : grammar) {
-            nonTerminals.push_back(pair.first);
-        }
-
-        for (const string& nt : nonTerminals) {
-            vector<string> alphas, betas;
-
-            for (const string& prod : grammar[nt]) {
-                if (prod.length() >= nt.length() && prod.substr(0, nt.length()) == nt) {
-                    alphas.push_back(prod.substr(nt.length())); // Extract alpha
-                } else {
-                    betas.push_back(prod); // Extract beta
-                }
-            }
-
-            if (alphas.empty()) continue;
-
-            string newNt = getNewNonTerminal(nt);
-            vector<string> newBetas, newAlphas;
-
-            if (betas.empty()) {
-                newBetas.push_back(newNt);
-            } else {
-                for (const string& beta : betas) {
-                    newBetas.push_back((beta == "epsilon" ? "" : beta) + newNt);
-                }
-            }
-
-            for (const string& alpha : alphas) {
-                newAlphas.push_back(alpha + newNt);
-            }
-            newAlphas.push_back("epsilon");
-
-            grammar[nt] = newBetas;
-            grammar[newNt] = newAlphas;
-
-            cout << endl;
-            cout << "Intermediate Grammar: " << endl;
-            printGrammar();
-            cout << endl;
-            cout << endl;
-        }
-    }
-
-
-    void leftFactor() {
-        bool changed = true;
-
-
-        while (changed) {
-            changed = false;
-            vector<string> nonTerminals;
-            for (const auto& pair : grammar) {
-                nonTerminals.push_back(pair.first);
-            }
-
-            for (const string& nt : nonTerminals) {
-                vector<string>& prods = grammar[nt];
-                if (prods.size() < 2) continue;
-
-                string bestPrefix = "";
-
-
-                for (size_t i = 0; i < prods.size(); ++i) {
-                    for (size_t j = i + 1; j < prods.size(); ++j) {
-                        if (prods[i] == "epsilon" || prods[j] == "epsilon") continue;
-
-                        string currentPrefix = getCommonPrefix(prods[i], prods[j]);
-                        if (currentPrefix.length() > bestPrefix.length()) {
-                            bestPrefix = currentPrefix;
-                        }
-                    }
-                }
-
-                if (bestPrefix.empty()) continue;
-
-                executed = true;
-                changed = true;
-                string newNt = getNewNonTerminal(nt);
-                vector<string> factoredProds;
-                vector<string> unchangedProds;
-
-                for (const string& p : prods) {
-                    if (p != "epsilon" && p.substr(0, bestPrefix.length()) == bestPrefix) {
-                        string remaining = p.substr(bestPrefix.length());
-                        if (remaining.empty()) remaining = "epsilon";
-                        factoredProds.push_back(remaining);
-                    } else {
-                        unchangedProds.push_back(p);
-                    }
-                }
-
-                // Update the map
-                unchangedProds.push_back(bestPrefix + newNt);
-                grammar[nt] = unchangedProds;
-                grammar[newNt] = factoredProds;
-
-                cout << endl;
-                cout << "Intermediate Grammar: " << endl;
-                printGrammar();
-                cout << endl;
-                cout << endl;
-
-                // Break out of the for-loop to refresh the map iterators
-                break;
-            }
-        }
-    }
-
-    void printGrammar() const {
-        for (const auto& pair : grammar) {
-            cout << pair.first << " -> ";
-            for (size_t i = 0; i < pair.second.size(); ++i) {
-                cout << pair.second[i];
-                if (i != pair.second.size() - 1) cout << " | ";
-            }
-            cout << endl;
-        }
-    }
-};
+string get_lcp(const string& a, const string& b) {
+    int i = 0;
+    while (i < a.length() && i < b.length() && a[i] == b[i]) i++;
+    return a.substr(0, i);
+}
 
 int main() {
-    GrammarProcessor gp;
+    string nt;
+    if (!(cin >> nt)) return 0;
 
     int n;
-    cout << "Enter the number of production rules: " << endl;
     cin >> n;
 
+    vector<string> prods(n);
+    for (int i = 0; i < n; i++) cin >> prods[i];
+
+    cout << "Original Grammar\n";
+    cout << nt << " -> ";
     for (int i = 0; i < n; i++) {
-        cout << "Enter production rule: " << endl;
-        string line;
-        cin >> line;
-        gp.addProduction(line);
+        cout << prods[i] << (i == n - 1 ? "" : " | ");
+    }
+    cout << "\n";
+
+    vector<string> alphas, betas;
+    for (string p : prods) {
+        if (p.length() >= nt.length() && p.substr(0, nt.length()) == nt) {
+            alphas.push_back(p.substr(nt.length()));
+        } else {
+            betas.push_back(p);
+        }
     }
 
+    if (alphas.empty()) return 0;
 
-    cout << "Original Grammar" << endl;
-    gp.printGrammar();
+    cout << "Removing Left Recursion\n";
+    string nt_prime = nt + "'";
+    vector<string> new_nt_prods;
 
+    cout << nt << " -> ";
+    for (int i = 0; i < betas.size(); i++) {
+        string p = betas[i] + nt_prime;
+        new_nt_prods.push_back(p);
+        cout << p << (i == betas.size() - 1 ? "" : " | ");
+    }
+    cout << "\n";
 
-    gp.eliminateLeftRecursion();
-    cout << "\n--- After Left Recursion Elimination ---" << endl;
-    gp.printGrammar();
+    vector<string> nt_prime_prods;
+    cout << nt_prime << " -> ";
+    for (int i = 0; i < alphas.size(); i++) {
+        string p = alphas[i] + nt_prime;
+        nt_prime_prods.push_back(p);
+        cout << p << " | ";
+    }
+    nt_prime_prods.push_back("e");
+    cout << "e\n";
 
-    gp.leftFactor();
-    cout << endl;
-    if (gp.executed) {
-        cout << "Left factoring is required." << endl;
-    } else cout << "Left factoring is not required." << endl;
-    cout << endl;
+    string best_prefix = "";
+    if (new_nt_prods.size() >= 2) {
+        best_prefix = get_lcp(new_nt_prods[0], new_nt_prods[1]);
+        for (int i = 2; i < new_nt_prods.size(); i++) {
+            best_prefix = get_lcp(best_prefix, new_nt_prods[i]);
+        }
+    }
 
-    cout << "\nAfter Left Factoring" << endl;
-    gp.printGrammar();
+    if (best_prefix.length() > 0) {
+        cout << "\nChecking Left Factoring Common Prefix Found : " << best_prefix << "\n";
+        cout << "\nAfter Left Factoring\n\n";
+
+        cout << nt << " -> " << best_prefix << "X\n";
+        cout << "X -> ";
+        for (int i = 0; i < new_nt_prods.size(); i++) {
+            string suffix = new_nt_prods[i].substr(best_prefix.length());
+            if (suffix == "") suffix = "e";
+            cout << suffix << (i == new_nt_prods.size() - 1 ? "" : " | ");
+        }
+        cout << "\n";
+
+        cout << nt_prime << " -> ";
+        for (int i = 0; i < nt_prime_prods.size(); i++) {
+            cout << nt_prime_prods[i] << (i == nt_prime_prods.size() - 1 ? "" : " | ");
+        }
+        cout << "\n";
+    } else {
+        cout << "\nChecking Left Factoring\n";
+        cout << "Left factoring not required\n";
+    }
 
     return 0;
 }
